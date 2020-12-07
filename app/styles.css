@@ -1,0 +1,16 @@
+.main{
+    margin: 0px auto;
+    padding: 0px 10px;
+}
+body{
+    text-align: center;
+}
+li{
+    margin-bottom: 1em;
+}
+textarea{
+    max-width: 100%;
+    height: 850px;
+    width: 100%;
+    font-size:10px!important;
+}

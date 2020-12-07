@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/vue-multiselect@2.1.0/dist/vue-multiselect.min.css">
+    <link href="styles.css" rel="stylesheet" />
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous" />
+    <script src="extensions.js"></script>
+    <script src="vue.js"></script>
+    <script src="https://unpkg.com/vue-multiselect@2.1.0"></script>
+</head>
+
+<body>
+    <div class="main" id="app">
+        <h1>Run Planner</h1>
+        <div class="form-text text-muted">
+            <p>
+                Puts together a training plan based on target ending mileage. Uses the 10% weekly increase rule. Fill
+                out
+                the days of the week you'd like for long runs and short runs and whether you'd like to incorporate
+                speed-work into your plan.
+            </p>
+            <p>(Note: no mileage increases and speed-work in the same week)</p>
+        </div>
+        <div class="app-container">
+            <h4>Fill out fields and click submit</h4>
+            <div class="col-md-6">
+                <form>
+                    <div class="form-group">
+                        <label for="starting-mileage">Starting mileage per week</label>
+                        <input type="number" min=1 step=1 class="form-control" v-model="startingMileage">
+                        <small class="form-text text-muted"># of miles you currently run in a week</small>
+                    </div>
+                    <div class="form-group">
+                        text <label for="goal-mileage">Goal mileage per week</label>
+                        <input type="number" min=1 step=1 class="form-control" v-model="goalMileage">
+                        <small class="form-text text-muted"># of miles you would like to run in a week</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="start-date">Start Date</label>
+                        <input type="date" class="form-control" id="start-date" v-model="startDate">
+                        <small class="form-text text-muted">Date to start the training plan</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="goal-date">Race Date</label>
+                        <input type="date" class="form-control" id="goal-date" v-model="goalDate">
+                        <small class="form-text text-muted">Race date or week to hit goal mileage</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="short-runs">Short Run Days: {{ runDaysText(shortRunDays) }}</label>
+                        <multiselect v-model="shortRunDays" :options="daysOfTheWeek" :multiple="true"
+                            :close-on-select="false" :clear-on-select="false" :preserve-search="true"
+                            placeholder="Pick short run days" label="text" track-by="value" :preselect-first="false">
+                            <template slot="selection" slot-scope="{ values, search, isOpen }"><span
+                                    class="multiselect__single"
+                                    v-if="values.length &amp;&amp; !isOpen">{{ values.length }} options
+                                    selected</span></template>
+                        </multiselect>
+                    </div>
+                    <div class="form-group">
+                        <label for="long-runs">Long Run Days: {{ runDaysText(longRunDays) }}</label>
+                        <multiselect v-model="longRunDays" :options="daysOfTheWeek" :multiple="true"
+                            :close-on-select="false" :clear-on-select="false" :preserve-search="true"
+                            placeholder="Pick long run days" label="text" track-by="value" :preselect-first="false">
+                            <template slot="selection" slot-scope="{ values, search, isOpen }"><span
+                                    class="multiselect__single"
+                                    v-if="values.length &amp;&amp; !isOpen">{{ values.length }} options
+                                    selected</span></template>
+                        </multiselect>
+                    </div>
+                    <div class="form-group">
+                        <label for="speed-work">Include Speed Work?</label>
+                        <input type="checkbox" v-model="includeSpeedWork">
+                        <small class="form-text text-muted">Note: speed work only included for weeks with no mileage
+                            added</small>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-6">
+
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>
