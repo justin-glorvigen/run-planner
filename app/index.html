@@ -24,7 +24,7 @@
             <p>(Note: no mileage increases and speed-work in the same week)</p>
         </div>
         <div class="app-container">
-            <h4>Fill out fields and click submit</h4>
+            <h4>Fill out fields and click "Build Plan"</h4>
             <div class="col-md-6">
                 <form>
                     <div class="form-group">
@@ -33,7 +33,7 @@
                         <small class="form-text text-muted"># of miles you currently run in a week</small>
                     </div>
                     <div class="form-group">
-                        text <label for="goal-mileage">Goal mileage per week</label>
+                        <label for="goal-mileage">Goal mileage per week</label>
                         <input type="number" min=1 step=1 class="form-control" v-model="goalMileage">
                         <small class="form-text text-muted"># of miles you would like to run in a week</small>
                     </div>
@@ -70,10 +70,21 @@
                         </multiselect>
                     </div>
                     <div class="form-group">
-                        <label for="speed-work">Include Speed Work?</label>
-                        <input type="checkbox" v-model="includeSpeedWork">
-                        <small class="form-text text-muted">Note: speed work only included for weeks with no mileage
-                            added</small>
+                        <label for="long-runs">Speed Work Days: {{ runDaysText(longRunDays) }} (max: 2)</label>
+                        <multiselect v-model="speedWorkDays" :options="daysOfTheWeek" :multiple="true"
+                            :close-on-select="false" :max="2" :clear-on-select="false" :preserve-search="true"
+                            placeholder="Pick speed work run days" label="text" track-by="value" :preselect-first="false">
+                            <template slot="selection" slot-scope="{ values, search, isOpen }"><span
+                                    class="multiselect__single"
+                                    v-if="values.length &amp;&amp; !isOpen">{{ values.length }} options
+                                    selected</span></template>
+                        </multiselect>
+                    </div>
+                    <div class="form-group">
+                        <button type="button" class="btn btn-primary" @click="calculateTrainingPlan">Build Plan</button>
+                    </div>
+                    <div class="form-group">
+                        <label v-for="msg in errorMessages" class="alert-danger">{{ msg }}</label>
                     </div>
                 </form>
             </div>

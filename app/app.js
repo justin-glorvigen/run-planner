@@ -6,13 +6,14 @@ var vue = new Vue({
         longRunToShortRunFactor: 2,
         mileageIncreasePerWeek: 1.1,
         daysToTaperPer10Miles: 1,
-        includeSpeedWork: true,
         startingMileage: 1,
+        errorMessages: [],
         goalMileage: 2,
         startDate: new Date().toISODateString(),
         goalDate: new Date().toISODateString(),
         shortRunDays: [],
         longRunDays: [],
+        speedWorkDays: [],
         trainingPlanWeeks: [],
         daysOfTheWeek: [
             {
@@ -47,7 +48,6 @@ var vue = new Vue({
     },
     methods: {
         runDaysText: function(days){
-            var vue = this;
             return days.map(d => d.text).join(', ');
         },
         getFirstDayOfWeek: function(inputDate){
@@ -60,8 +60,46 @@ var vue = new Vue({
         calculateTrainingPlan: function(){
             var vue = this;
 
-            // Get number of weeks
+            vue.errorMessages = [];
 
+            // Get number of weeks between start date and end date
+            var weeks = 2; // Calculate
+
+            // Calculate mileage increase weeks
+            var mileageIncreaseWeeks = vue.findMileageIncreaseWeeks(vue.startingMileage, vue.goalMileage, vue.mileageIncreasePerWeek);
+            if (mileageIncreaseWeeks.length > weeks){
+                vue.errorMessages.push(`Unable to safely ramp up mileage that much in ${weeks} weeks. Recommended time to safely ramp up to that many miles is ${mileageIncreaseWeeks.length}.`);
+            }
+
+
+            // Calculate race taper
+            var taperDays = vue.calculateRaceTaper(vue.goalMileage);
+            if (mileageIncreaseWeeks.length + (taperDays % 7) > weeks){
+                vue.errorMessages.push(`No time left for race taper. Recommended taper for this many miles is ${taperDays} day${taperDays <= 1 ? '' : 's'}.`);
+            }
+
+            // Calculate speed-work weeks
+            var speedworkWeeks = weeks - mileageIncreaseWeeks.length - Math.ceil(taperDays / 7);
+            if (speedworkWeeks <= 0 && vue.speedWorkDays.length > 0){
+                vue.errorMessages.push(`Mileage ramp up and taper days take up all training times, no weeks left for speedwork.`);
+            }
+        },
+        findMileageIncreaseWeeks: function(startingMileage, goalMileage, increasePerWeek){
+            var currMileage = startingMileage;
+            var weeks = [];
+
+            while(currMileage < goalMileage){
+                currMileage = currMileage * increasePerWeek;
+
+                weeks.push({
+                    mileage: currMileage
+                });
+            }
+
+            return weeks;
+        },
+        calculateRaceTaper: function(goalMileage){
+            return 3;
         }
     },
     mounted: function ()
