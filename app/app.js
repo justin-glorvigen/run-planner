@@ -3,18 +3,18 @@ Vue.component('multiselect', window.VueMultiselect.default)
 var vue = new Vue({
     el: '#app',
     data: {
-        raceMileage: 13.1,
-        goalMileage: 21,
-        startingMileage: 10,
+        raceMileage: 50,
+        goalMileage: 70,
+        startingMileage: 15,
         mileageIncreasePerWeek: 1.1,
         longRunToShortRunFactor: 2,
         errorMessages: [],
         warningMessages: [],
         startDate: new Date().toISODateString(),
         goalDate: new Date().toISODateString(),
-        shortRunDays: [{"text":"Monday","value":1},{"text":"Wednesday","value":3}],
+        shortRunDays: [{"text":"Monday","value":1},{"text":"Wednesday","value":3},{"text":"Thursday","value":4}],
         longRunDays: [{"text":"Sunday","value":0},{"text":"Saturday","value":6}],
-        speedWorkDays: [],
+        speedWorkDays: [{"text":"Monday","value":1},{"text":"Thursday","value":4}],
         trainingPlanWeeks: [],
         daysOfTheWeek: [
             {
@@ -158,28 +158,30 @@ var vue = new Vue({
     
                 // Calculate the number of weeks that you'll need to
                 // increase mileage in order to hit your goal mileage
-                var mileageIncreaseWeeks = vue.findMileageIncreaseWeeks(vue.startingMileage, vue.goalMileage, vue.mileageIncreasePerWeek, vue.longRunDays, vue.shortRunDays, vue.longRunToShortRunFactor);
-                if (mileageIncreaseWeeks.length > trainingWeeks){
-                    vue.errorMessages.push(`Unable to safely ramp up mileage that much in ${trainingWeeks} weeks. Recommended time to safely ramp up to that many miles is ${mileageIncreaseWeeks.length}.`);
+                vue.trainingPlan = vue.findMileageIncreaseWeeks(vue.startingMileage, vue.goalMileage, vue.mileageIncreasePerWeek, vue.longRunDays, vue.shortRunDays, vue.longRunToShortRunFactor, "short run");
+                if (vue.trainingPlan.length > trainingWeeks) {
+                    vue.errorMessages.push(`Unable to safely ramp up mileage that much in ${trainingWeeks} weeks. Recommended time to safely ramp up to that many miles is ${vue.trainingPlan.length}.`);
                 }
     
                 // Calculate the number of days needed to taper down your training
                 // so you're rested for the race
-                var taperWeeks = vue.calculateRaceTaper(vue.raceMileage, vue.longRunDays, vue.shortRunDays, vue.longRunToShortRunFactor);
-                if (mileageIncreaseWeeks.length + taperWeeks > Math.floor(trainingDays / 7)) {
+                var taperWeeks = vue.calculateRaceTaper(vue.raceMileage, vue.trainingPlan[vue.trainingPlan.length - 1], vue.longRunDays, vue.shortRunDays, vue.longRunToShortRunFactor, "short run");
+                if (vue.trainingPlan.length + taperWeeks > Math.floor(trainingDays / 7)) {
                     vue.errorMessages.push(`Not enough time for race taper. Recommended taper for this many miles is ${taperWeeks} week${taperWeeks <= 1 ? '' : 's'}.`);
                 }
     
                 if (vue.speedWorkDays.length > 0){
                     // Calculate the number of weeks left over to incorporate speed work
-                    var speedworkWeeks = trainingWeeks - mileageIncreaseWeeks.length - taperWeeks;
+                    var speedworkWeeks = trainingWeeks - vue.trainingPlan.length - taperWeeks;
                     if (speedworkWeeks <= 0){
                         vue.warningMessages.push(`Mileage ramp up and taper will take up all training time, no weeks left for speedwork.`);
                     }
                 }
 
-                vue.trainingPlan = mileageIncreaseWeeks;
-                console.log(JSON.stringify(vue.trainingPlan));
+                // Add race taper here so it's at the end of the training plan
+                taperWeeks.forEach(t => {
+                    vue.trainingPlan.push(t);
+                });
             }
         },
         calculateDaysBetweenDates: function(startDate, goalDate){
@@ -206,33 +208,51 @@ var vue = new Vue({
 
             return weeks;
         },
-        calculateWeek: function(weekMileage, longRunDays, shortRunDays, longRunToShortRunFactor){
+        calculateWeek: function(weekType, weekMileage, longRunDays, shortRunDays, longRunToShortRunFactor, shortRunType){
             var returning = {
                 desiredMileage: vue.roundMiles(weekMileage),
+                type: weekType,
                 days: []
             };
 
             // Calculation for long run mileage
-            // longRunMileage = shortRunMileage * longRunToShortRunFactor
-            // Total Week Mileage = longRunMileage + shortRunMileage
-            // Given the previous 2, we get this formula:
-            // longRunMileage = Total Week Mileage / (longRunToShortRunFactor + 1) * longRunToShortRunFactor
+            // Went a little crazy with the math but I'll do my best to explain it here.
+            // sr = short run distance
+            // lr = long run distance
+            // x = number of long runs
+            // y = number of short runs
+            // tm = total weekly mileage
+            // Using these acronyms we can construct the formula for calculating our run numbers like this:
+            // tm = x * lr + y * sr
+            // Long version: total mileage = number of long runs times long run distance plus number of short runs times short run distance
+            // Since we have a long run to short run factor we can call that "f",
+            // and since our long runs are a factor of a short run we know "lr = sr * f"
+            // So our formula now becomes:
+            // tm = x * sr * f + y * sr
+            // Using a series of transforms we can solve for our short run distance,
+            // and by extension, long run distance since lr = sr * f.
+            // I'll admit it, I cheated (or did I just verify my own solution?). Here's the WolframAlpha solution: https://www.wolframalpha.com/input/?i=t+%3D+x*s*f%2By*s+solve+for+s
+            // The formula solved for sr
+            // sr = tm / (f * x + y)
 
-            var longRunMileage = weekMileage / (longRunToShortRunFactor + 1) * longRunToShortRunFactor;
-            var shortRunMileage = weekMileage - longRunMileage;
+            // Using the formula
+            var shortRunMileage = weekMileage / (longRunToShortRunFactor * longRunDays.length + shortRunDays.length);
+            // Using the result to get the long run mileage
+            var longRunMileage = shortRunMileage * longRunToShortRunFactor;
 
             if (longRunDays.length <= 2){
                 longRunDays.forEach(d => {
                     returning.days.push({
                         day: d,
-                        mileage: vue.roundMiles(longRunMileage / longRunDays.length)
+                        mileage: vue.roundMiles(longRunMileage),
+                        type: "long run"
                     });
                 });
             } else {
-                var variance = vue.roundMiles(longRunMileage / 10);
+                var variance = vue.roundMiles(longRunMileage * longRunDays.length / 10);
 
                 for (var i = 0; i < longRunDays.length; i++){
-                    var mileage = vue.roundMiles(longRunMileage / longRunDays.length);
+                    var mileage = vue.roundMiles(longRunMileage);
                     if (i == 0){
                         mileage -= variance;
                     } else if (i == longRunDays.length - 1){
@@ -241,7 +261,8 @@ var vue = new Vue({
 
                     returning.days.push({
                         day: longRunDays[i],
-                        mileage: mileage
+                        mileage: mileage,
+                        type: "long run"
                     });
                 }
             }
@@ -250,25 +271,27 @@ var vue = new Vue({
                 shortRunDays.forEach(d => {
                     returning.days.push({
                         day: d,
-                        mileage: vue.roundMiles(shortRunMileage / shortRunDays.length)
+                        mileage: vue.roundMiles(shortRunMileage),
+                        type: shortRunType
                     });
                 });
             } else {
                 // Introduce some variance
-                var variance = vue.roundMiles(shortRunMileage / 5);
+                var variance = vue.roundMiles(shortRunMileage * shortRunDays.length / 10);
                 
                 for (var i = 0; i < shortRunDays.length; i++){
-                    var mileage = vue.roundMiles(shortRunMileage / shortRunDays.length);
+                    var mileage = vue.roundMiles(shortRunMileage);
 
                     if (i == 0){
                         mileage -= variance;
-                    }else if (i == shortRunDays.length - 1){
+                    }else if (i == 1){
                         mileage += variance
                     }
 
                     returning.days.push({
                         day: shortRunDays[i],
-                        mileage: mileage
+                        mileage: mileage,
+                        type: shortRunType
                     });
                 }
             }
@@ -296,7 +319,7 @@ var vue = new Vue({
 
             return returning / 100;
         },
-        findMileageIncreaseWeeks: function(startingMileage, goalMileage, increasePerWeek, longRunDays, shortRunDays, longRunToShortRunFactor){
+        findMileageIncreaseWeeks: function(startingMileage, goalMileage, increasePerWeek, longRunDays, shortRunDays, longRunToShortRunFactor, shortRunType){
             var currMileage = startingMileage;
             var weeks = [];
 
@@ -307,12 +330,12 @@ var vue = new Vue({
                     currMileage = goalMileage;
                 }
 
-                weeks.push(vue.calculateWeek(currMileage, longRunDays, shortRunDays, longRunToShortRunFactor));
+                weeks.push(vue.calculateWeek("Increasing Mileage", currMileage, longRunDays, shortRunDays, longRunToShortRunFactor, shortRunType));
             }
 
             return weeks;
         },
-        calculateRaceTaper: function(raceMileage, lastTrainingWeek){
+        calculateRaceTaper: function(raceMileage, lastTrainingWeek, longRunDays, shortRunDays, longRunToShortRunFactor, shortRunType){
             var vue = this;
 
             // Find taper schedule
@@ -330,8 +353,13 @@ var vue = new Vue({
             // Now we have our race taper plan, start building the weeks
             var returning = [];
 
+            closestTaperDistance.taperSchedule.forEach(t => {
+                var weekMileage = vue.roundMiles(lastTrainingWeek.actualMileage * (1 - t));
 
+                returning.push(vue.calculateWeek("Race Taper " + "-" + (t * 100) + "%", weekMileage, longRunDays, shortRunDays, longRunToShortRunFactor, shortRunType));
+            });
 
+            return returning;
         },
         downloadCSV: function(){
             
@@ -341,7 +369,7 @@ var vue = new Vue({
     {
         // Main initialization method
         var vue = this;
-        vue.goalDate = vue.getFirstDayOfWeek(new Date(new Date().getTime() + 5443200000)).toISODateString(); // Default goal in 8 weeks
+        vue.goalDate = vue.getFirstDayOfWeek(new Date(new Date().getTime() + 14515200000)).toISODateString(); // Default goal in 8 weeks
         vue.startDate = vue.getFirstDayOfWeek(new Date(new Date().getTime() + 604800000)).toISODateString(); // Default start date next week
     }
 });
