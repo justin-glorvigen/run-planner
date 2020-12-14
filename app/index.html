@@ -25,71 +25,85 @@
         </div>
         <div class="app-container">
             <h4>Fill out fields and click "Build Plan"</h4>
-            <div class="col-md-6">
-                <form>
-                    <div class="form-group">
-                        <label for="starting-mileage">Starting mileage per week</label>
-                        <input type="number" min=1 step=1 class="form-control" v-model="startingMileage">
-                        <small class="form-text text-muted"># of miles you currently run in a week</small>
+            <form class="col-md-6" style="display:inline-block; vertical-align: top;">
+                <div class="form-group">
+                    <label for="race-mileage" class="race-mileage">Race Mileage:</label>
+                    <input type="number" min=1 step=.1 class="form-control" v-model="raceMileage">
+                    <small class="form-text text-muted">Mileage of the race you plan to run</small>
+                </div>
+                <div class="form-group">
+                    <label for="starting-mileage">Starting mileage per week</label>
+                    <input type="number" min=1 step=1 class="form-control" v-model="startingMileage">
+                    <small class="form-text text-muted"># of miles you currently run in a week</small>
+                </div>
+                <div class="form-group">
+                    <label for="goal-mileage">Goal mileage per week</label>
+                    <input type="number" min=1 step=1 class="form-control" v-model="goalMileage">
+                    <small class="form-text text-muted"># of miles you want to run per week before the race. Because of rounding, actual weekly mileage may be slightly higher or lower.</small>
+                </div>
+                <div class="form-group">
+                    <label for="start-date">Start Date</label>
+                    <input type="date" class="form-control" id="start-date" v-model="startDate">
+                    <small class="form-text text-muted">Date to start the training plan</small>
+                </div>
+                <div class="form-group">
+                    <label for="goal-date">Race Date</label>
+                    <input type="date" class="form-control" id="goal-date" v-model="goalDate">
+                    <small class="form-text text-muted">Race date or week to hit goal mileage</small>
+                </div>
+                <div class="form-group">
+                    <label for="short-runs">Short Run Days: {{ runDaysText(shortRunDays) }}</label>
+                    <multiselect v-model="shortRunDays" :options="daysOfTheWeek" :multiple="true"
+                        :close-on-select="false" :clear-on-select="false" :preserve-search="true"
+                        placeholder="Pick short run days" label="text" track-by="value" :preselect-first="false">
+                        <template slot="selection" slot-scope="{ values, search, isOpen }"><span
+                                class="multiselect__single" v-if="values.length &amp;&amp; !isOpen">{{ values.length }}
+                                options
+                                selected</span></template>
+                    </multiselect>
+                </div>
+                <div class="form-group">
+                    <label for="long-runs">Long Run Days: {{ runDaysText(longRunDays) }}</label>
+                    <multiselect v-model="longRunDays" :options="daysOfTheWeek" :multiple="true"
+                        :close-on-select="false" :clear-on-select="false" :preserve-search="true"
+                        placeholder="Pick long run days" label="text" track-by="value" :preselect-first="false">
+                        <template slot="selection" slot-scope="{ values, search, isOpen }"><span
+                                class="multiselect__single" v-if="values.length &amp;&amp; !isOpen">{{ values.length }}
+                                options
+                                selected</span></template>
+                    </multiselect>
+                </div>
+                <div class="form-group">
+                    <label for="long-runs">Speed Work Days: {{ runDaysText(longRunDays) }} (max: 2)</label>
+                    <multiselect v-model="speedWorkDays" :options="daysOfTheWeek" :multiple="true"
+                        :close-on-select="false" :max="2" :clear-on-select="false" :preserve-search="true"
+                        placeholder="Pick speed work run days" label="text" track-by="value" :preselect-first="false">
+                        <template slot="selection" slot-scope="{ values, search, isOpen }"><span
+                                class="multiselect__single" v-if="values.length &amp;&amp; !isOpen">{{ values.length }}
+                                options
+                                selected</span></template>
+                    </multiselect>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-primary" @click="calculateTrainingPlan">Build Plan</button>
+                </div>
+                <div class="form-group">
+                    <label v-for="msg in errorMessages" class="alert-danger">{{ msg }}</label>
+                </div>
+                <div class="form-group">
+                    <label v-for="msg in warningMessages" class="alert-warning">{{ msg }}</label>
+                </div>
+            </form>
+            <div class="col-md-5" style="display:inline-block">
+                <div class="form-group">
+                    <button type="button" class="btn btn-primary" @click="downloadCSV" v-show="trainingPlan.length">Download CSV</button>
+                </div>
+                <div v-for="(week, index) in trainingPlan" class="form-group week">
+                    <h4>{{ 'Week: ' + (index + 1) + ": " + week.actualMileage + (week.actualMileage == 1 ? " mile" : " miles") }}</h4>
+                    <div class="day form-group" v-for="day in week.days">
+                        <label>{{ day.day.text + ": " + day.mileage + (day.mileage == 1 ? " mile" : " miles") }}</label>
                     </div>
-                    <div class="form-group">
-                        <label for="goal-mileage">Goal mileage per week</label>
-                        <input type="number" min=1 step=1 class="form-control" v-model="goalMileage">
-                        <small class="form-text text-muted"># of miles you would like to run in a week</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="start-date">Start Date</label>
-                        <input type="date" class="form-control" id="start-date" v-model="startDate">
-                        <small class="form-text text-muted">Date to start the training plan</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="goal-date">Race Date</label>
-                        <input type="date" class="form-control" id="goal-date" v-model="goalDate">
-                        <small class="form-text text-muted">Race date or week to hit goal mileage</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="short-runs">Short Run Days: {{ runDaysText(shortRunDays) }}</label>
-                        <multiselect v-model="shortRunDays" :options="daysOfTheWeek" :multiple="true"
-                            :close-on-select="false" :clear-on-select="false" :preserve-search="true"
-                            placeholder="Pick short run days" label="text" track-by="value" :preselect-first="false">
-                            <template slot="selection" slot-scope="{ values, search, isOpen }"><span
-                                    class="multiselect__single"
-                                    v-if="values.length &amp;&amp; !isOpen">{{ values.length }} options
-                                    selected</span></template>
-                        </multiselect>
-                    </div>
-                    <div class="form-group">
-                        <label for="long-runs">Long Run Days: {{ runDaysText(longRunDays) }}</label>
-                        <multiselect v-model="longRunDays" :options="daysOfTheWeek" :multiple="true"
-                            :close-on-select="false" :clear-on-select="false" :preserve-search="true"
-                            placeholder="Pick long run days" label="text" track-by="value" :preselect-first="false">
-                            <template slot="selection" slot-scope="{ values, search, isOpen }"><span
-                                    class="multiselect__single"
-                                    v-if="values.length &amp;&amp; !isOpen">{{ values.length }} options
-                                    selected</span></template>
-                        </multiselect>
-                    </div>
-                    <div class="form-group">
-                        <label for="long-runs">Speed Work Days: {{ runDaysText(longRunDays) }} (max: 2)</label>
-                        <multiselect v-model="speedWorkDays" :options="daysOfTheWeek" :multiple="true"
-                            :close-on-select="false" :max="2" :clear-on-select="false" :preserve-search="true"
-                            placeholder="Pick speed work run days" label="text" track-by="value" :preselect-first="false">
-                            <template slot="selection" slot-scope="{ values, search, isOpen }"><span
-                                    class="multiselect__single"
-                                    v-if="values.length &amp;&amp; !isOpen">{{ values.length }} options
-                                    selected</span></template>
-                        </multiselect>
-                    </div>
-                    <div class="form-group">
-                        <button type="button" class="btn btn-primary" @click="calculateTrainingPlan">Build Plan</button>
-                    </div>
-                    <div class="form-group">
-                        <label v-for="msg in errorMessages" class="alert-danger">{{ msg }}</label>
-                    </div>
-                </form>
-            </div>
-            <div class="col-md-6">
-
+                </div>
             </div>
         </div>
     </div>

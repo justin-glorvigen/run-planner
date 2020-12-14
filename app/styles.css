@@ -14,3 +14,9 @@ textarea{
     width: 100%;
     font-size:10px!important;
 }
+.alert-warning, .alert-danger{
+    padding: 0px 5px;
+}
+div.week h4, div.day, div.day label {
+    margin:0px;
+}
