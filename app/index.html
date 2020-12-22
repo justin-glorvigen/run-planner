@@ -2,13 +2,12 @@
 <html>
 
 <head>
-    <link rel="stylesheet" href="https://unpkg.com/vue-multiselect@2.1.0/dist/vue-multiselect.min.css">
+    <link rel="stylesheet" href="vue-multiselect.css">
     <link href="styles.css" rel="stylesheet" />
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous" />
+    <link href="bootstrap.4.4.1.css" rel="stylesheet"/>
     <script src="extensions.js"></script>
     <script src="vue.js"></script>
-    <script src="https://unpkg.com/vue-multiselect@2.1.0"></script>
+    <script src="vue-multiselect.js"></script>
     <title>Get your run on</title>
 </head>
 
@@ -98,6 +97,10 @@
             <div class="col-md-5" style="display:inline-block">
                 <div class="form-group">
                     <button type="button" class="btn btn-primary" @click="downloadCSV" v-show="trainingPlan.length">Download CSV</button>
+                    <small class="form-text col-md-12">
+                        Sharable link:
+                        <pre><a :href="link">{{ link }}</a></pre>
+                    </small>
                 </div>
                 <div v-for="(week, index) in trainingPlan" class="form-group week">
                     <h4>{{ 'Week ' + (index + 1) + " - " + week.type + " - " + week.actualMileage + (week.actualMileage == 1 ? " mile" : " miles") }}</h4>
