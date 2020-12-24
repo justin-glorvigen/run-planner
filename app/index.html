@@ -103,9 +103,9 @@
                     </small>
                 </div>
                 <div v-for="(week, index) in trainingPlan" class="form-group week">
-                    <h4>{{ 'Week ' + (index + 1) + " - " + week.type + " - " + week.actualMileage + (week.actualMileage == 1 ? " mile" : " miles") }}</h4>
+                    <h4>{{ week.start.toLocaleDateString() + "-" + week.end.toLocaleDateString() + " - " + week.type + " - " + week.actualMileage + (week.actualMileage == 1 ? " mile" : " miles") }}</h4>
                     <div class="day form-group" v-for="day in week.days">
-                        <label>{{ day.day.text + ": " + day.type + " for " + day.mileage + (day.mileage == 1 ? " mile" : " miles") }}</label>
+                        <label>{{ day.date.toDateString() + ": " + day.type + " for " + day.mileage + (day.mileage == 1 ? " mile" : " miles") }}</label>
                     </div>
                 </div>
             </div>

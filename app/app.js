@@ -233,6 +233,21 @@ var vue = new Vue({
                 taperWeeks.forEach(t => {
                     vue.trainingPlan.push(t);
                 });
+
+                var msPerDay = 1000 * 60 * 60 * 24;
+                var currDate = Date.parse(vue.startDate) + new Date().getTimezoneOffset() * 1000 * 60;
+
+                // Set up dates
+                vue.trainingPlan.forEach(d => {
+                    d.start = new Date(currDate);
+                    d.end = new Date(currDate + msPerDay * 6);
+
+                    d.days.forEach(day => {
+                        day.date = new Date(new Date(currDate + msPerDay * day.day.value));
+                    });
+
+                    currDate += msPerDay * 7;
+                });
             }
         },
         calculateDaysBetweenDates: function(startDate, goalDate){
@@ -511,9 +526,11 @@ var vue = new Vue({
         getLink: function(){
             var vue = this;
 
+            var timezoneOffset = new Date().getTimezoneOffset() * 1000 * 60;
+
             var queryValues = [
-                'goalDate=' + (Date.parse(vue.goalDate) + 86400000),// Add 24 hours to offset the Date.parse method setting it to 12:00AM
-                'startDate=' + (Date.parse(vue.startDate) + 86400000),
+                'goalDate=' + (Date.parse(vue.goalDate) + timezoneOffset),// Add 24 hours to offset the Date.parse method setting it to 12:00AM
+                'startDate=' + (Date.parse(vue.startDate) + timezoneOffset),
                 'startingMiles=' + vue.startingMileage,
                 'raceMiles=' + vue.raceMileage,
                 'goalMiles=' + vue.goalMileage,
