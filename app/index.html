@@ -96,7 +96,7 @@
             </form>
             <div class="col-md-5" style="display:inline-block">
                 <div class="form-group">
-                    <button type="button" class="btn btn-primary" @click="downloadCSV" v-show="trainingPlan.length">Download CSV</button>
+                    <button type="button" class="btn btn-primary" v-if="false" @click="downloadCSV" v-show="trainingPlan.length">Download CSV</button>
                     <small class="form-text col-md-12">
                         Sharable link:
                         <pre><a :href="link">{{ link }}</a></pre>
