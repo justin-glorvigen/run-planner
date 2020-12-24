@@ -237,6 +237,8 @@ var vue = new Vue({
                 var msPerDay = 1000 * 60 * 60 * 24;
                 var currDate = Date.parse(vue.startDate) + new Date().getTimezoneOffset() * 1000 * 60;
 
+                var raceDate = Date.parse(vue.goalDate) + new Date().getTimezoneOffset() * 1000 * 60;
+
                 // Set up dates
                 vue.trainingPlan.forEach(d => {
                     d.start = new Date(currDate);
@@ -246,7 +248,18 @@ var vue = new Vue({
                         day.date = new Date(new Date(currDate + msPerDay * day.day.value));
                     });
 
+
                     currDate += msPerDay * 7;
+
+                    // Filter out training days that happen after, or on, the race date.
+                    d.days = d.days.filter(day => day.date.getTime() < raceDate);
+
+                    // Re-calculate weekly mileage
+                    var weeklyMileage = 0;
+                    d.days.forEach(day => {
+                        weeklyMileage += day.mileage;
+                    });
+                    d.actualMileage = weeklyMileage;
                 });
             }
         },
