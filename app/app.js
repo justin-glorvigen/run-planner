@@ -175,57 +175,67 @@ var vue = new Vue({
         trainingPlan: []
     },
     methods: {
-        runDaysText: function(days){
+        runDaysText: function (days) {
             return days.map(d => d.text).join(', ');
         },
-        getFirstDayOfWeek: function(inputDate){
+        getFirstDayOfWeek: function (inputDate) {
             var msPerDay = 1000 * 60 * 60 * 24;
             var msToSubtract = inputDate.getDay() * msPerDay;
 
             return new Date(inputDate.getTime() - msToSubtract);
         },
-        calculateTrainingPlan: function() {
+        calculateTrainingPlan: function () {
             var vue = this;
 
             vue.link = vue.getLink();
 
             vue.errorMessages = [];
 
-            if (vue.longRunDays.length <= 0 && vue.shortRunDays.length <= 0){
+            if (vue.longRunDays.length <= 0 && vue.shortRunDays.length <= 0) {
                 vue.errorMessages.push("Must have at least one short run and one long run per week");
             } else {
-                if (vue.shortRunDays.length < 2){
+                if (vue.shortRunDays.length < 2) {
                     vue.errorMessages.push("At least 2 short run days are recommended per week");
                 }
-    
+
                 // Get number of days between start date and end date
                 var trainingDays = vue.calculateDaysBetweenDates(vue.startDate, vue.goalDate);
                 var trainingWeeks = Math.floor(trainingDays / 7);
-    
+
                 // Calculate the number of weeks that you'll need to
                 // increase mileage in order to hit your goal mileage
                 vue.trainingPlan = vue.findMileageIncreaseWeeks(vue.startingMileage, vue.goalMileage, vue.mileageIncreasePerWeek, vue.longRunDays, vue.shortRunDays, vue.longRunToShortRunFactor);
                 if (vue.trainingPlan.length > trainingWeeks) {
                     vue.errorMessages.push(`Unable to safely ramp up mileage that much in ${trainingWeeks} weeks. Recommended time to safely ramp up to that many miles is ${vue.trainingPlan.length}.`);
                 }
-    
+
                 // Calculate the number of days needed to taper down your training
                 // so you're rested for the race
                 var taperWeeks = vue.calculateRaceTaper(vue.raceMileage, vue.trainingPlan[vue.trainingPlan.length - 1], vue.longRunDays, vue.shortRunDays, vue.longRunToShortRunFactor);
                 if (vue.trainingPlan.length + taperWeeks > Math.floor(trainingDays / 7)) {
                     vue.errorMessages.push(`Not enough time for race taper. Recommended taper for this many miles is ${taperWeeks} week${taperWeeks <= 1 ? '' : 's'}.`);
                 }
-    
-                if (vue.speedWorkDays.length > 0){
+
+                if (vue.speedWorkDays.length > 0) {
                     // Calculate the number of weeks left over to incorporate speed work
                     var speedworkWeeks = trainingWeeks - vue.trainingPlan.length - taperWeeks.length;
-                    if (speedworkWeeks <= 0){
+                    if (speedworkWeeks <= 0) {
                         vue.warningMessages.push(`Mileage ramp up and taper will take up all training time, no weeks left for speedwork.`);
                     } else {
                         var populatedWeeks = vue.populateSpeedworkWeeks(speedworkWeeks, vue.goalMileage, vue.longRunDays, vue.shortRunDays, vue.speedWorkDays, vue.longRunToShortRunFactor);
                         populatedWeeks.forEach(d => {
                             vue.trainingPlan.push(d);
                         });
+                    }
+                } else {
+                    // Add steady training weeks to ensure we hit our entire plan
+                    var weeksToAdd = trainingWeeks - vue.trainingPlan.length - taperWeeks.length;
+
+                    for (var i = 0; i < weeksToAdd; i++) {
+                        // Just copy the previous week since we're steadily training
+                        var weekToCopy = JSON.parse(JSON.stringify(vue.trainingPlan[vue.trainingPlan.length - 1]));
+                        weekToCopy.type = "Steady Training"
+                        vue.trainingPlan.push(weekToCopy);
                     }
                 }
 
@@ -235,21 +245,24 @@ var vue = new Vue({
                 });
 
                 var msPerDay = 1000 * 60 * 60 * 24;
-                var currDate = Date.parse(vue.startDate) + new Date().getTimezoneOffset() * 1000 * 60;
+                var trainingStartDate = new Date(Date.parse(vue.startDate) + new Date().getTimezoneOffset() * 1000 * 60);
+                var currDate = vue.getFirstDayOfWeek(trainingStartDate);
 
-                var raceDate = Date.parse(vue.goalDate) + new Date().getTimezoneOffset() * 1000 * 60;
+                var raceDate = Date.parse(vue.goalDate);
 
                 // Set up dates
                 vue.trainingPlan.forEach(d => {
-                    d.start = new Date(currDate);
-                    d.end = new Date(currDate + msPerDay * 6);
+                    d.start = currDate;
+                    d.end = new Date(currDate.getTime() + msPerDay * 6);
 
                     d.days.forEach(day => {
-                        day.date = new Date(new Date(currDate + msPerDay * day.day.value));
+                        day.date = new Date(currDate.getTime() + (msPerDay * day.day.value));
                     });
 
+                    currDate = new Date(currDate.getTime() + msPerDay * 7);
 
-                    currDate += msPerDay * 7;
+                    // Filter out training days that happen before the start date
+                    d.days = d.days.filter(day => day.date.getTime() >= trainingStartDate.getTime());
 
                     // Filter out training days that happen after, or on, the race date.
                     d.days = d.days.filter(day => day.date.getTime() < raceDate);
@@ -263,31 +276,30 @@ var vue = new Vue({
                 });
             }
         },
-        calculateDaysBetweenDates: function(startDate, goalDate){
+        calculateDaysBetweenDates: function (startDate, goalDate) {
             var vue = this;
+
+            // ms per week = ms per second * seconds per minute * minutes per hour * hours per day
+            var msPerDay = 1000 * 60 * 60 * 24;
 
             startDate = new Date(Date.parse(startDate));
             goalDate = new Date(Date.parse(goalDate));
 
-            // We're treating the goal week as not a full week of training
-            // so calculate weeks between start week and first day of end week
             var firstDayOfStartWeek = vue.getFirstDayOfWeek(startDate);
-            var firstDayOfGoalWeek = vue.getFirstDayOfWeek(goalDate);
+            var lastDayOfGoalWeek = new Date(vue.getFirstDayOfWeek(goalDate).getTime() + msPerDay * 6);
 
             // Convert days to ms timestamps
             var startTime = Date.parse(firstDayOfStartWeek);
-            var endTime = Date.parse(firstDayOfGoalWeek);
+            var endTime = Date.parse(lastDayOfGoalWeek);
 
-            // ms per week = ms per second * seconds per minute * minutes per hour * hours per day
-            var msPerWeek = 1000 * 60 * 60 * 24;
 
             var msBetween = endTime - startTime;
 
-            var weeks = Math.ceil(msBetween / msPerWeek);
+            var days = Math.ceil(msBetween / msPerDay);
 
-            return weeks;
+            return days;
         },
-        calculateWeek: function(weekType, weekMileage, longRunDays, shortRunDays, longRunToShortRunFactor, speedWorkDays){
+        calculateWeek: function (weekType, weekMileage, longRunDays, shortRunDays, longRunToShortRunFactor, speedWorkDays) {
             var vue = this;
 
             var desiredMileage = vue.roundMiles(weekMileage);
@@ -301,18 +313,18 @@ var vue = new Vue({
             /*
                 Calculate speedwork days last, take the speedwork mileage from short runs.
             */
-            
+
             // Keep track of the speedwork distance so we know whether to replace a short run with it or not
             var speedworkMileage = 0;
-            if (!speedWorkDays){
+            if (!speedWorkDays) {
                 speedWorkDays = [];
             } else {
                 var speedworkThreshold = vue.speedWorkThresholds.filter(d => d.speedworkDayCount = speedWorkDays.length);
 
-                if (speedworkThreshold.length > 0){
+                if (speedworkThreshold.length > 0) {
                     // Find the speedwork mileage to use
                     var speedworkDistanceMapping = speedworkThreshold[0].distanceMappings.filter(d => d.weeklyMiles < desiredMileage).sort((a, b) => b.weeklyMiles - a.weeklyMiles);
-                    if (speedworkDistanceMapping.length > 0){
+                    if (speedworkDistanceMapping.length > 0) {
                         speedworkMileage = speedworkDistanceMapping[0].speedworkDistance;
                     } else {
                         vue.errorMessages.push("Weekly mileage too short to introduce speedwork, try to increase weekly mileage before attempting to add speedwork");
@@ -350,9 +362,9 @@ var vue = new Vue({
 
             var daysToTakeSpeedworkMileageFromLongRuns = speedWorkDays.length - shortRunDays.length;
 
-            if (longRunDays.length <= 2){
-                for (var i = 0; i < longRunDays.length; i++){
-                    if (daysToTakeSpeedworkMileageFromLongRuns > 0){
+            if (longRunDays.length <= 2) {
+                for (var i = 0; i < longRunDays.length; i++) {
+                    if (daysToTakeSpeedworkMileageFromLongRuns > 0) {
                         returning.days.push({
                             day: longRunDays[i],
                             mileage: vue.roundMiles(longRunMileage - speedworkMileage),
@@ -371,15 +383,15 @@ var vue = new Vue({
             } else {
                 var variance = vue.roundMiles(longRunMileage * longRunDays.length / 10);
 
-                for (var i = 0; i < longRunDays.length; i++){
+                for (var i = 0; i < longRunDays.length; i++) {
                     var mileage = vue.roundMiles(longRunMileage);
-                    if (i == 0){
+                    if (i == 0) {
                         mileage -= variance;
-                    } else if (i == longRunDays.length - 1){
+                    } else if (i == longRunDays.length - 1) {
                         mileage += variance;
                     }
 
-                    if (daysToTakeSpeedworkMileageFromLongRuns > 0){
+                    if (daysToTakeSpeedworkMileageFromLongRuns > 0) {
                         returning.days.push({
                             day: longRunDays[i],
                             mileage: vue.roundMiles(mileage - speedworkMileage),
@@ -398,9 +410,9 @@ var vue = new Vue({
 
 
             var daysToTakeSpeedworkMileageFromShortRuns = speedWorkDays.length;
-            if (shortRunDays.length <= 2){
-                for (var i = 0; i < shortRunDays.length; i++){
-                    if (daysToTakeSpeedworkMileageFromShortRuns > 0){
+            if (shortRunDays.length <= 2) {
+                for (var i = 0; i < shortRunDays.length; i++) {
+                    if (daysToTakeSpeedworkMileageFromShortRuns > 0) {
                         returning.days.push({
                             day: shortRunDays[i],
                             mileage: vue.roundMiles(shortRunMileage - speedworkMileage),
@@ -418,13 +430,13 @@ var vue = new Vue({
             } else {
                 // Introduce some variance
                 var variance = vue.roundMiles(shortRunMileage * shortRunDays.length / 10);
-                
-                for (var i = 0; i < shortRunDays.length; i++){
+
+                for (var i = 0; i < shortRunDays.length; i++) {
                     var mileage = vue.roundMiles(shortRunMileage);
 
-                    if (i == 0){
+                    if (i == 0) {
                         mileage -= variance;
-                    }else if (i == 1){
+                    } else if (i == 1) {
                         mileage += variance
                     }
 
@@ -432,7 +444,7 @@ var vue = new Vue({
 
                     var mileage = vue.roundMiles(shortRunMileage);
 
-                    if (daysToTakeSpeedworkMileageFromShortRuns > 0){
+                    if (daysToTakeSpeedworkMileageFromShortRuns > 0) {
                         returning.days.push({
                             day: day,
                             mileage: vue.roundMiles(mileage - speedworkMileage),
@@ -440,7 +452,7 @@ var vue = new Vue({
                         });
 
                         daysToTakeSpeedworkMileageFromShortRuns -= 1;
-                    }else {
+                    } else {
                         returning.days.push({
                             day: day,
                             mileage: mileage,
@@ -469,11 +481,11 @@ var vue = new Vue({
             return returning;
         },
         // Rounds miles to the closest quarter
-        roundMiles: function(miles){
+        roundMiles: function (miles) {
             var returning = Math.round(miles * 100);
 
             var toRound = returning % 25;
-            if (toRound > 12){
+            if (toRound > 12) {
                 returning += 25 - toRound;
             } else {
                 returning -= toRound;
@@ -481,16 +493,16 @@ var vue = new Vue({
 
             return returning / 100;
         },
-        findMileageIncreaseWeeks: function(startingMileage, goalMileage, increasePerWeek, longRunDays, shortRunDays, longRunToShortRunFactor){
+        findMileageIncreaseWeeks: function (startingMileage, goalMileage, increasePerWeek, longRunDays, shortRunDays, longRunToShortRunFactor) {
             var vue = this;
 
             var currMileage = startingMileage;
             var weeks = [];
 
-            while(currMileage < goalMileage){
-                currMileage = currMileage * increasePerWeek;
+            while (currMileage < goalMileage) {
+                currMileage = vue.roundMiles(currMileage * increasePerWeek);
 
-                if (currMileage > goalMileage){
+                if (currMileage > goalMileage) {
                     currMileage = goalMileage;
                 }
 
@@ -499,7 +511,7 @@ var vue = new Vue({
 
             return weeks;
         },
-        calculateRaceTaper: function(raceMileage, lastTrainingWeek, longRunDays, shortRunDays, longRunToShortRunFactor){
+        calculateRaceTaper: function (raceMileage, lastTrainingWeek, longRunDays, shortRunDays, longRunToShortRunFactor) {
             var vue = this;
 
             // Find taper schedule
@@ -509,7 +521,7 @@ var vue = new Vue({
                 var currDistance = Math.abs(closestTaperDistance.mileage - raceMileage);
                 var newDistance = Math.abs(taperDistance.mileage - raceMileage);
 
-                if (newDistance < currDistance){
+                if (newDistance < currDistance) {
                     closestTaperDistance = taperDistance;
                 }
             });
@@ -525,18 +537,18 @@ var vue = new Vue({
 
             return returning;
         },
-        populateSpeedworkWeeks: function(numberOfWeeks, goalMileage, longRunDays, shortRunDays, speedWorkDays, longRunToShortRunFactor) {
+        populateSpeedworkWeeks: function (numberOfWeeks, goalMileage, longRunDays, shortRunDays, speedWorkDays, longRunToShortRunFactor) {
             var vue = this;
 
             var returning = [];
 
-            for (var i = 0; i < numberOfWeeks; i++){
+            for (var i = 0; i < numberOfWeeks; i++) {
                 returning.push(vue.calculateWeek("Steady Training", goalMileage, longRunDays, shortRunDays, longRunToShortRunFactor, speedWorkDays));
             }
 
             return returning;
         },
-        getLink: function(){
+        getLink: function () {
             var vue = this;
 
             var timezoneOffset = new Date().getTimezoneOffset() * 1000 * 60;
@@ -554,51 +566,50 @@ var vue = new Vue({
 
             return window.location.href.split("?")[0] + "?" + queryValues.join("&");
         },
-        downloadCSV: function(){
-            
+        downloadCSV: function () {
+
         }
     },
-    mounted: function ()
-    {
+    mounted: function () {
         // Main initialization method
         var vue = this;
         vue.goalDate = vue.getFirstDayOfWeek(new Date(new Date().getTime() + 14515200000)).toISODateString(); // Default goal in 24 weeks
         vue.startDate = vue.getFirstDayOfWeek(new Date(new Date().getTime() + 604800000)).toISODateString(); // Default start date next week
 
         var args = new URLSearchParams(window.location.search);
-        if (args.get('goalDate')){
+        if (args.get('goalDate')) {
             vue.goalDate = new Date(parseFloat(args.get('goalDate'))).toISODateString();
         }
 
-        if (args.get('startDate')){
+        if (args.get('startDate')) {
             vue.startDate = new Date(parseFloat(args.get('startDate'))).toISODateString();
         }
 
-        if (args.get('startingMiles')){
+        if (args.get('startingMiles')) {
             vue.startingMileage = args.get('startingMiles');
         }
 
-        if (args.get('raceMiles')){
+        if (args.get('raceMiles')) {
             vue.raceMileage = args.get('raceMiles');
         }
 
-        if (args.get('goalMiles')){
+        if (args.get('goalMiles')) {
             vue.goalMileage = args.get('goalMiles');
         }
 
-        if (args.get('longRunDays')){
+        if (args.get('longRunDays')) {
             var dayVals = args.get('longRunDays').split(',').map(d => parseInt(d));
 
             vue.longRunDays = vue.daysOfTheWeek.filter(d => dayVals.indexOf(d.value) >= 0);
         }
 
-        if (args.get('shortRunDays')){
+        if (args.get('shortRunDays')) {
             var dayVals = args.get('shortRunDays').split(',').map(d => parseInt(d));
 
             vue.shortRunDays = vue.daysOfTheWeek.filter(d => dayVals.indexOf(d.value) >= 0);
         }
 
-        if (args.get('speedworkDays')){
+        if (args.get('speedworkDays')) {
             var dayVals = args.get('speedworkDays').split(',').map(d => parseInt(d));
 
             vue.speedWorkDays = vue.daysOfTheWeek.filter(d => dayVals.indexOf(d.value) >= 0);
