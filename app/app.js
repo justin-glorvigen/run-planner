@@ -551,7 +551,7 @@ var vue = new Vue({
         getLink: function () {
             var vue = this;
 
-            var timezoneOffset = new Date().getTimezoneOffset() * 1000 * 60;
+            var timezoneOffset = (new Date().getTimezoneOffset() + 60) * 1000 * 60;
 
             var queryValues = [
                 'goalDate=' + (Date.parse(vue.goalDate) + timezoneOffset),// Add 24 hours to offset the Date.parse method setting it to 12:00AM
