@@ -204,7 +204,7 @@ var vue = new Vue({
 
                 // Calculate the number of weeks that you'll need to
                 // increase mileage in order to hit your goal mileage
-                vue.trainingPlan = vue.findMileageIncreaseWeeks(vue.startingMileage, vue.goalMileage, vue.mileageIncreasePerWeek, vue.longRunDays, vue.shortRunDays, vue.longRunToShortRunFactor);
+                vue.trainingPlan = vue.findMileageIncreaseWeeks(parseInt(vue.startingMileage), parseInt(vue.goalMileage), vue.mileageIncreasePerWeek, vue.longRunDays, vue.shortRunDays, vue.longRunToShortRunFactor);
                 if (vue.trainingPlan.length > trainingWeeks) {
                     vue.errorMessages.push(`Unable to safely ramp up mileage that much in ${trainingWeeks} weeks. Recommended time to safely ramp up to that many miles is ${vue.trainingPlan.length}.`);
                 }
